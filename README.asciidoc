@@ -42,16 +42,16 @@ to be sent, the function overwrites the buffer with the contents of the outbound
 containing the response and adjusts the frameLen value as necessary.  It then returns true.
 On the other hand, if no response should be sent, the function returns false without modifying the input parameters.
 
-Note that the input frame data should begin with the Ethernet header, and the input frame length 
-should count all of the header and payload (including any padding), but NOT the length of the
-Frame Check Sequence (FCS) or Inter-packet Gap (IPG) bytes.  Likewise, the output length will
-not include the length of the FCS.
+Note that the input frame data should begin with the Ethernet header followed by the payload. The input
+frame length value should count all of the header and payload byte (including any padding), but NOT the bytes of the
+Frame Check Sequence (FCS) or Inter-packet Gap (IPG).  Likewise, the output length will
+not include the header and payload, but not the length of the FCS.
 
 The `TinyEchoServer_ProcessEthernetFrame()` function is implemented such that it only requires
 access to the headers of the input packet, not the full packet data.  This is useful in situations
 where the Ethernet driver spreads large packets over multiple recieve buffers.  In this case
 only the first such buffer need be passed to the function.  To ensure all headers are available
-in the buffer, the buffer must contain at least the first 42 bytes of the full Ethernet frame.
+in the input buffer, the buffer must contain at least the first 42 bytes of the full Ethernet frame.
 (Also note that, as mentioned above, the frame length variable should contain the length of the entire
 frame, not just the length of data in the input buffer).
 
@@ -77,6 +77,13 @@ This means it will respond to request packets with bad IP checksums.  (Note that
 generation of the Ethernet Frame Check Sequence is expected to be handled by the Ethernet driver).
 
 Despite not checking the IP checksum, when it forms a response, the code uses the input packet's 
-checksum value when generating the checksum value for the output packet.  Thus a checksum error
+checksum value to generate the checksum value for the output packet.  Thus a checksum error
 affecting a request packet will be seen by a client as a checksum error in the corresponding
 response.  This helps to ensure that such errors ultimately get caught.
+
+
+## License
+
+The *TinyEchoServer* source code is licensed under the [Apache version 2.0 license](https://www.apache.org/licenses/LICENSE-2.0).
+
+All documentation, including any images and this README, are licensed under a [Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/).
