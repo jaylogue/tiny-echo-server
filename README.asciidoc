@@ -1,0 +1,82 @@
+# Tiny Echo Server
+
+An ARP/ICMP/UDP IPv4 stack and echo server implemented in a single C function.
+
+*TinyEchoServer* implements an absolute minimalist IPv4 stack and echo server capable
+of limited (but useful) interactions with traditional IPv4 clients.  *TinyEchoServer*
+is implemented as a single C function, making it both simple to use and highly efficient.
+
+*TinyEchoServer* is highly limited in the types of packets it can respond to.  Specifically,
+it is capable of decoding and responding to the following 3 packet types only:
+
+  - ARP requests
+  - ICMPv4 echo requests
+  - UDPv4 echo requests (UDP port 7)
+
+While quite limited compared to a traditional IPv4 server, it nonetheless can provide useful
+responses in many cases.
+
+
+## So what's it good for?
+
+The primary use case for *TinyEchoServer* is the bring-up of Ethernet drivers in embedded
+systems.  The simplicity of the code makes it easier to incorporate into bare-metal test applications
+than more traditional embedded IP stacks such as LwIP.
+
+Additionally, being a very compact piece of code, it is very fast.  This makes it easy to
+construct tests to evaluate the raw performance of an Ethernet driver in isolation.  This
+is especially useful when evaluating peak packets-per-second (pps) performance, where having
+very low per-packet processing overhead is important. 
+
+
+## API
+
+The core of *TinyEchoServer* is a single API function called `TinyEchoServer_ProcessEthernetFrame()`:
+
+    bool TinyEchoServer_ProcessEthernetFrame(uint8_t * frameBuf, uint32_t * frameLen)
+
+This function takes as input a buffer containing an Ethernet frame, and a pointer to an
+integer containing the frame's length.  When presented with an incoming Ethernet frame, the
+function decodes the frame and determines an appropriate response.  If a response packet is
+to be sent, the function overwrites the buffer with the contents of the outbound Ethernet frame
+containing the response and adjusts the frameLen value as necessary.  It then returns true.
+On the other hand, if no response should be sent, the function returns false without modifying the input parameters.
+
+Note that the input frame data should begin with the Ethernet header, and the input frame length 
+should count all of the header and payload (including any padding), but NOT the length of the
+Frame Check Sequence (FCS) or Inter-packet Gap (IPG) bytes.  Likewise, the output length will
+not include the length of the FCS.
+
+The `TinyEchoServer_ProcessEthernetFrame()` function is implemented such that it only requires
+access to the headers of the input packet, not the full packet data.  This is useful in situations
+where the Ethernet driver spreads large packets over multiple recieve buffers.  In this case
+only the first such buffer need be passed to the function.  To ensure all headers are available
+in the buffer, the buffer must contain at least the first 42 bytes of the full Ethernet frame.
+(Also note that, as mentioned above, the frame length variable should contain the length of the entire
+frame, not just the length of data in the input buffer).
+
+### Server MAC and IP Addresses
+
+The Ethernet MAC and IP address of the server are controlled by the following global variables:
+
+    uint8_t TinyEchoServer_IPAddress[4];
+    uint8_t TinyEchoServer_MACAddress[6];
+
+Both addresses are stored in network byte-order.
+
+If not overridden, the following addresses are used by default:
+
+- **MAC Address**: 11:22:33:44:55:66
+- **IPv4 Address**: 192.168.1.2
+
+
+## Checksum Handling
+
+Unlike a traditional stack, the *TinyEchoServer* code performs no IP-level checksum validation.
+This means it will respond to request packets with bad IP checksums.  (Note that validation and 
+generation of the Ethernet Frame Check Sequence is expected to be handled by the Ethernet driver).
+
+Despite not checking the IP checksum, when it forms a response, the code uses the input packet's 
+checksum value when generating the checksum value for the output packet.  Thus a checksum error
+affecting a request packet will be seen by a client as a checksum error in the corresponding
+response.  This helps to ensure that such errors ultimately get caught.
